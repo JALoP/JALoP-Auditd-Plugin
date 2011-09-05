@@ -126,7 +126,7 @@ static void audit_event_handle(auparse_state_t *au,
 		} while (auparse_next_field(au) > 0);
 
 		log_data->sd->param_list = param_list;
-		log_data->message = (char *)auparse_get_record_text(au);
+		log_data->message = strdup(auparse_get_record_text(au));
 		if (!log_data->message) {
 			syslog(LOG_ERR, "failure retrieving auparse record text");
 			goto out;
@@ -137,6 +137,7 @@ static void audit_event_handle(auparse_state_t *au,
 			syslog(LOG_ERR, "failure sending JALP audit message, rc: %d", rc);
 			goto out;
 		}
+		free(log_data->message);
 		log_data->message = NULL;
 
 		jalp_param_destroy(&param_list);
