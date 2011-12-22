@@ -94,7 +94,7 @@ static void audit_event_handle(auparse_state_t *au,
 		goto out;
 	}
 
-	log_data->logger_name = strdup("jalauditd");
+	log_data->logger_name = strdup("auditd");
 	if (!log_data->logger_name) {
 		syslog(LOG_ERR, "failure strduping logger_name");
 		goto out;
@@ -185,7 +185,7 @@ static int context_init(config_t *config, jalp_context *ctx)
 	config_lookup_string(config, SOCKET, &sockpath);
 	config_lookup_string(config, SCHEMAS, &schemas);
 
-	rc = jalp_context_init(ctx, sockpath, NULL, "jalauditd", schemas);
+	rc = jalp_context_init(ctx, sockpath, NULL, "auditd", schemas);
 
 out:
 	return rc;
