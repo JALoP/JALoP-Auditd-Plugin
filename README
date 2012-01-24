@@ -46,3 +46,6 @@ BUILD STEPS
 	make install
 		Install the binary and config files to their designated
 		locations.
+
+	auditd must be restarted after installation:
+		/etc/init.d/auditd restart
