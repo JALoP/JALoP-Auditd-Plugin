@@ -17,15 +17,18 @@ INTRODUCTION
 	Other than the binary path, no other option within this file should be 
 	changed.
 
-	The jalauditd config file is initially blank and can take only 2
-	options, socket and schemas. Either must be formatted in the following
-	way:
+	The jalauditd config file is initially blank and can take only 4
+	options, socket, schemas, keypath, and certpath. These parameters must be 
+	formatted in the following way:
 
-		socket = /path/to/jalop/socket;
-		schemas = /path/to/schemas/root;
+		socket = "/path/to/jalop/socket";
+		schemas = "/path/to/schemas/root";
+		keypath = "/path/to/key";
+		certpath = "/path/to/cert";
 
-	These options, if not specified, with default to the locations specified
-	by the JAL producer library.
+	The socket and schemas options, if not specified, with default to the locations specified
+	by the JAL producer library.  If keypath or certpath are not specified, no key or cert will
+	be used for signing.
 
 
 DEPENDENCIES

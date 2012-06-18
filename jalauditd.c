@@ -44,6 +44,8 @@
 
 #define SOCKET "socket"
 #define SCHEMAS "schemas"
+#define KEYPATH "keypath"
+#define CERTPATH "certpath"
 
 #define RUN	0
 #define STOP	1
@@ -176,6 +178,8 @@ static int context_init(config_t *config, jalp_context *ctx)
 	int rc = 0;
 	const char *sockpath = NULL;
 	const char *schemas = NULL;
+	const char *keypath = NULL;
+	const char *certpath = NULL;
 
 	if (!config) {
 		rc = -1;
@@ -184,8 +188,25 @@ static int context_init(config_t *config, jalp_context *ctx)
 
 	config_lookup_string(config, SOCKET, &sockpath);
 	config_lookup_string(config, SCHEMAS, &schemas);
+	config_lookup_string(config, KEYPATH, &keypath);
+	config_lookup_string(config, CERTPATH, &certpath);
 
 	rc = jalp_context_init(ctx, sockpath, NULL, "auditd", schemas);
+
+	if (rc != JAL_OK) {
+		goto out;
+	}
+
+	if (keypath != NULL) {
+		rc = jalp_context_load_pem_rsa(ctx, keypath, NULL);
+		if (rc != JAL_OK) {
+			goto out;
+		}
+	}
+
+	if (certpath != NULL) {
+		rc = jalp_context_load_pem_cert(ctx, certpath);
+	}
 
 out:
 	return rc;
