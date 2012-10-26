@@ -34,11 +34,15 @@
 #include <libaudit.h>
 #include <auparse.h>
 #include <syslog.h>
+#include <glib.h>
+#include <pthread.h>
 
 #include <jalop/jalp_context.h>
 #include <jalop/jalp_logger.h>
 #include <jalop/jalp_app_metadata.h>
 #include <jalop/jalp_logger_metadata.h>
+
+#define UNUSED(x) (void)(x)
 
 #define CONFIG_PATH "/etc/jalauditd/jalauditd.conf"
 
@@ -46,11 +50,24 @@
 #define SCHEMAS "schemas"
 #define KEYPATH "keypath"
 #define CERTPATH "certpath"
+#define PRINTSTATS "printstats"
+#define PRINTSTATSFREQ "printstatsfreq"
+#define QUEUEMAXLENGTH "queuemaxlength"
 
 #define RUN	0
 #define STOP	1
 #define RELOAD	2
 static int status = RUN;
+
+GQueue* event_queue = NULL; 
+pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t data_in_queue = PTHREAD_COND_INITIALIZER;
+pthread_cond_t queue_full = PTHREAD_COND_INITIALIZER;
+
+static int print_stats=0;
+static int print_stats_freq=60;
+static int queue_max_length=10000;
+static unsigned int queue_max_length_seen = 0;
 
 static void sig_handle(int sig)
 {
@@ -70,13 +87,12 @@ static void audit_event_handle(auparse_state_t *au,
 			auparse_cb_event_t event_type,
 			void *user_data)
 {
-	int rc = 0;
+	UNUSED(user_data);
 	int i = 0;
 	struct jalp_app_metadata *app_data = NULL;
 	struct jalp_logger_metadata *log_data = NULL;
 	struct jalp_param *param_list = NULL;
 	struct jalp_param *param = NULL;
-	jalp_context *ctx = user_data;
 
 	if (event_type != AUPARSE_CB_EVENT_READY) {
 		return;
@@ -133,21 +149,19 @@ static void audit_event_handle(auparse_state_t *au,
 			syslog(LOG_ERR, "failure retrieving auparse record text");
 			goto out;
 		}
-
-		rc = jalp_log(ctx, app_data, NULL, 0);
-		if (rc != JAL_OK) {
-			syslog(LOG_ERR, "failure sending JALP audit message, rc: %d", rc);
-			goto out;
+		pthread_mutex_lock(&queue_mutex);
+		
+		while (g_queue_get_length(event_queue) >= (unsigned int)queue_max_length){
+			pthread_cond_wait(&queue_full, &queue_mutex);
 		}
-		free(log_data->message);
-		log_data->message = NULL;
-
-		jalp_param_destroy(&param_list);
-		log_data->sd->param_list = NULL;
+		g_queue_push_tail(event_queue, (void*)app_data);
+		queue_max_length_seen = MAX(g_queue_get_length(event_queue),queue_max_length_seen);
+		pthread_mutex_unlock(&queue_mutex);
+		pthread_cond_signal(&data_in_queue);
 
 		i++;
 	}
-
+	return;
 out:
 	jalp_app_metadata_destroy(&app_data);
 }
@@ -168,6 +182,10 @@ static int config_load(config_t *config)
 						config_error_line(config));
 		goto out;
 	}
+
+	config_lookup_int(config,PRINTSTATS, &print_stats);
+	config_lookup_int(config,PRINTSTATSFREQ, &print_stats_freq);
+	config_lookup_int(config,QUEUEMAXLENGTH, &queue_max_length);
 
 out:
 	return rc;
@@ -212,13 +230,53 @@ out:
 	return rc;
 }
 
+static void* log_stats(void* ptr){
+	UNUSED(ptr);
+	while(1){
+		sleep(print_stats_freq);
+		syslog(LOG_INFO, "Max queue length seen: %d", queue_max_length_seen);
+		syslog(LOG_INFO, "Current queue length: %d", g_queue_get_length(event_queue));
+	}
+}
+
+static void* send_messages_to_local_store(void* ctx)
+{
+	int rc=0;	
+	struct jalp_app_metadata *app_data = NULL;
+	while(1){
+		pthread_mutex_lock(&queue_mutex);
+		while(g_queue_is_empty(event_queue)){
+			pthread_cond_wait(&data_in_queue, &queue_mutex);
+		}
+
+		app_data = (struct jalp_app_metadata*) g_queue_pop_head(event_queue);
+
+		pthread_mutex_unlock(&queue_mutex);
+		pthread_cond_signal(&queue_full);
+
+		rc = jalp_log((jalp_context*) ctx, app_data, NULL, 0);
+		if (rc != JAL_OK) {
+			syslog(LOG_ERR, "failure sending JALP audit message, rc: %d", rc);	
+			jalp_app_metadata_destroy(&app_data);
+		}
+		free(app_data->log->message);
+		app_data->log->message = NULL;
+
+		jalp_param_destroy(&(app_data->log->sd->param_list));
+		app_data->log->sd->param_list = NULL;
+	}
+}
+
 int main(void)
 {
 	int rc = 0;
 	char msg[MAX_AUDIT_MESSAGE_LENGTH+1];
 	auparse_state_t *au = NULL;
 	jalp_context *ctx = NULL;
+	event_queue = g_queue_new();
 	config_t config;
+	pthread_t send_ls_thread;
+	pthread_t print_stats_thread;
 
 	config_init(&config);
 
@@ -265,8 +323,14 @@ int main(void)
 				goto out;
 			}
 			config_destroy(&config);
-
+			
+			pthread_cancel(print_stats_thread);
+			pthread_cancel(send_ls_thread);
 			auparse_add_callback(au, audit_event_handle, ctx, NULL);
+			pthread_create(&send_ls_thread, NULL, &send_messages_to_local_store, (void*)ctx);
+			if(print_stats){
+				pthread_create(&print_stats_thread, NULL, &log_stats, NULL);
+			}
 
 			status = RUN;
 		}

@@ -11,8 +11,8 @@ JALAUDITD = jalauditd
 SRC = $(JALAUDITD).c
 OBJ = $(JALAUDITD).o
 
-LDFLAGS ?= -lauparse -lconfig -ljal-producer -ljal-common -L/usr/local/lib -Wl,-rpath=/usr/local/lib
-CFLAGS ?= -Werror -Wall -Wshadow -Wextra -Wundef -Wmissing-format-attribute -Wcast-align -Wstrict-prototypes -Wpointer-arith -Wunused -D_GNU_SOURCE
+LDFLAGS ?= -lauparse -lconfig -ljal-producer -ljal-common -L/usr/local/lib -Wl,-rpath=/usr/local/lib -L/lib64 -lglib-2.0
+CFLAGS ?= -Werror -Wall -Wshadow -Wextra -Wundef -Wmissing-format-attribute -Wcast-align -Wstrict-prototypes -Wpointer-arith -Wunused -D_GNU_SOURCE -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include
 
 ifeq ($(DEBUG),1)
 	override CFLAGS += -g3 -O0 -gdwarf-2 -fno-strict-aliasing -DDEBUG
