@@ -30,6 +30,7 @@
 #include <string.h>
 #include <signal.h>
 #include <libconfig.h>
+#include <unistd.h>
 
 #include <libaudit.h>
 #include <auparse.h>
@@ -182,10 +183,36 @@ static int config_load(config_t *config)
 						config_error_line(config));
 		goto out;
 	}
-
+#if defined(LIBCONFIG_VER_MAJOR) \
+	&& (((LIBCONFIG_VER_MAJOR == 1) && (LIBCONFIG_VER_MINOR >= 4)) \
+	|| (LIBCONFIG_VER_MAJOR > 1))
 	config_lookup_int(config,PRINTSTATS, &print_stats);
 	config_lookup_int(config,PRINTSTATSFREQ, &print_stats_freq);
 	config_lookup_int(config,QUEUEMAXLENGTH, &queue_max_length);
+#else
+	long print_stats_long = print_stats;
+	long print_stats_freq_long = print_stats_freq;
+	long queue_max_length_long = queue_max_length;
+	config_lookup_int(config,PRINTSTATS, &print_stats_long);
+	config_lookup_int(config,PRINTSTATSFREQ, &print_stats_freq_long);
+	config_lookup_int(config,QUEUEMAXLENGTH, &queue_max_length_long);
+	if(print_stats_long > INT_MAX){
+		syslog(LOG_ERR, "print_stats in config file is too big.  Using default value");
+	}else{
+		print_stats = (int)print_stats_long;
+	}
+	if(print_stats_freq_long > INT_MAX){
+		syslog(LOG_ERR, "print_stats_freq in config file is too big.  Using default value");
+	}else{
+		print_stats_freq = (int)print_stats_freq_long;
+	}
+	if(queue_max_length_long > INT_MAX){
+		syslog(LOG_ERR, "queue_max_length in config file is too big.  Using default value");
+	}else{
+		queue_max_length = (int)queue_max_length_long;
+	}
+
+#endif
 
 out:
 	return rc;
@@ -237,6 +264,7 @@ static void* log_stats(void* ptr){
 		syslog(LOG_INFO, "Max queue length seen: %d", queue_max_length_seen);
 		syslog(LOG_INFO, "Current queue length: %d", g_queue_get_length(event_queue));
 	}
+	return NULL;
 }
 
 static void* send_messages_to_local_store(void* ctx)
@@ -265,6 +293,7 @@ static void* send_messages_to_local_store(void* ctx)
 		jalp_param_destroy(&(app_data->log->sd->param_list));
 		app_data->log->sd->param_list = NULL;
 	}
+	return NULL;
 }
 
 int main(void)
