@@ -352,9 +352,10 @@ int main(void)
 				goto out;
 			}
 			config_destroy(&config);
-			
-			pthread_cancel(print_stats_thread);
-			pthread_cancel(send_ls_thread);
+			if (status == RELOAD) {
+				pthread_cancel(print_stats_thread);
+				pthread_cancel(send_ls_thread);
+			}
 			auparse_add_callback(au, audit_event_handle, ctx, NULL);
 			pthread_create(&send_ls_thread, NULL, &send_messages_to_local_store, (void*)ctx);
 			if(print_stats){
