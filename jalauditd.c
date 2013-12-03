@@ -286,6 +286,8 @@ static void* send_messages_to_local_store(void* ctx)
 		if (rc != JAL_OK) {
 			syslog(LOG_ERR, "failure sending JALP audit message, rc: %d", rc);	
 			jalp_app_metadata_destroy(&app_data);
+			status = RELOAD;
+			return NULL;
 		}
 		free(app_data->log->message);
 		app_data->log->message = NULL;
