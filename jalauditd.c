@@ -355,12 +355,14 @@ int main(void)
 			}
 			config_destroy(&config);
 			if (status == RELOAD) {
-				pthread_cancel(print_stats_thread);
+				if (print_stats) {
+					pthread_cancel(print_stats_thread);
+				}
 				pthread_cancel(send_ls_thread);
 			}
 			auparse_add_callback(au, audit_event_handle, ctx, NULL);
 			pthread_create(&send_ls_thread, NULL, &send_messages_to_local_store, (void*)ctx);
-			if(print_stats){
+			if (print_stats){
 				pthread_create(&print_stats_thread, NULL, &log_stats, NULL);
 			}
 
