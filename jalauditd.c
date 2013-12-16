@@ -99,35 +99,35 @@ static void audit_event_handle(auparse_state_t *au,
 		return;
 	}
 
-	app_data = jalp_app_metadata_create();
-	if (!app_data) {
-		syslog(LOG_ERR, "failure creating JALP application metadata");
-		goto out;
-	}
-
-	app_data->type = JALP_METADATA_LOGGER;
-
-	log_data = jalp_logger_metadata_create();
-	if (!log_data) {
-		syslog(LOG_ERR, "failure creating JALP logger metadata");
-		goto out;
-	}
-
-	log_data->logger_name = strdup("auditd");
-	if (!log_data->logger_name) {
-		syslog(LOG_ERR, "failure strduping logger_name");
-		goto out;
-	}
-
-	log_data->sd = jalp_structured_data_append(NULL, "audit");
-	if (!log_data->sd) {
-		syslog(LOG_ERR, "failure appending JALP audit structured data");
-		goto out;
-	}
-
-	app_data->log = log_data;
-
 	while (auparse_goto_record_num(au, i) > 0) {
+
+		app_data = jalp_app_metadata_create();
+		if (!app_data) {
+			syslog(LOG_ERR, "failure creating JALP application metadata");
+			goto out;
+		}
+
+		app_data->type = JALP_METADATA_LOGGER;
+
+		log_data = jalp_logger_metadata_create();
+		if (!log_data) {
+			syslog(LOG_ERR, "failure creating JALP logger metadata");
+			goto out;
+		}
+
+		log_data->logger_name = strdup("auditd");
+		if (!log_data->logger_name) {
+			syslog(LOG_ERR, "failure strduping logger_name");
+			goto out;
+		}
+
+		log_data->sd = jalp_structured_data_append(NULL, "audit");
+		if (!log_data->sd) {
+			syslog(LOG_ERR, "failure appending JALP audit structured data");
+			goto out;
+		}
+
+		app_data->log = log_data;
 
 		do {
 			const char *key = auparse_get_field_name(au);
@@ -156,11 +156,18 @@ static void audit_event_handle(auparse_state_t *au,
 			pthread_cond_wait(&queue_full, &queue_mutex);
 		}
 		g_queue_push_tail(event_queue, (void*)app_data);
+
 		queue_max_length_seen = MAX(g_queue_get_length(event_queue),queue_max_length_seen);
 		pthread_mutex_unlock(&queue_mutex);
 		pthread_cond_signal(&data_in_queue);
 
 		i++;
+
+		app_data = NULL;
+		log_data = NULL;
+		param_list = NULL;
+		param = NULL;
+
 	}
 	return;
 out:
@@ -283,17 +290,19 @@ static void* send_messages_to_local_store(void* ctx)
 		pthread_cond_signal(&queue_full);
 
 		rc = jalp_log((jalp_context*) ctx, app_data, NULL, 0);
-		if (rc != JAL_OK) {
-			syslog(LOG_ERR, "failure sending JALP audit message, rc: %d", rc);	
-			jalp_app_metadata_destroy(&app_data);
-			status = RELOAD;
-			return NULL;
-		}
+
 		free(app_data->log->message);
 		app_data->log->message = NULL;
 
 		jalp_param_destroy(&(app_data->log->sd->param_list));
 		app_data->log->sd->param_list = NULL;
+		jalp_app_metadata_destroy(&app_data);
+
+		if (rc != JAL_OK) {
+			syslog(LOG_ERR, "failure sending JALP audit message, rc: %d", rc);	
+			status = RELOAD;
+			return NULL;
+		}
 	}
 	return NULL;
 }
