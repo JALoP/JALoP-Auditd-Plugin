@@ -37,6 +37,8 @@
 #include <syslog.h>
 #include <glib.h>
 #include <pthread.h>
+#include <errno.h>
+#include <time.h>
 
 #include <jalop/jalp_context.h>
 #include <jalop/jalp_logger.h>
@@ -54,6 +56,8 @@
 #define PRINTSTATS "printstats"
 #define PRINTSTATSFREQ "printstatsfreq"
 #define QUEUEMAXLENGTH "queuemaxlength"
+
+#define QUEUE_FULL_TIMEOUT 5
 
 #define RUN	0
 #define STOP	1
@@ -94,6 +98,8 @@ static void audit_event_handle(auparse_state_t *au,
 	struct jalp_logger_metadata *log_data = NULL;
 	struct jalp_param *param_list = NULL;
 	struct jalp_param *param = NULL;
+
+	struct timespec timeout;
 
 	if (event_type != AUPARSE_CB_EVENT_READY) {
 		return;
@@ -153,7 +159,15 @@ static void audit_event_handle(auparse_state_t *au,
 		pthread_mutex_lock(&queue_mutex);
 		
 		while (g_queue_get_length(event_queue) >= (unsigned int)queue_max_length){
-			pthread_cond_wait(&queue_full, &queue_mutex);
+			clock_gettime(CLOCK_REALTIME, &timeout);
+			timeout.tv_sec+=QUEUE_FULL_TIMEOUT;
+			errno=0;
+			pthread_cond_timedwait(&queue_full, &queue_mutex, &timeout);
+			if (g_queue_get_length(event_queue) >= (unsigned int)queue_max_length){
+				// We woke up, but the queue is still full. Discard message
+				pthread_mutex_unlock(&queue_mutex);
+				goto out;
+			}
 		}
 		g_queue_push_tail(event_queue, (void*)app_data);
 
