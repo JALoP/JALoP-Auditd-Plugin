@@ -139,6 +139,10 @@ static void audit_event_handle(auparse_state_t *au,
 			const char *key = auparse_get_field_name(au);
 			const char *value = auparse_get_field_str(au);
 
+			if (0 == strcmp(key,"type") && 0 == strcmp(value,"EOE")) {
+				goto out;
+			}	
+
 			param = jalp_param_append(param, key, value);
 			if (!param) {
 				syslog(LOG_ERR, "failure appending JALP parameter: %s %s", key, value);
