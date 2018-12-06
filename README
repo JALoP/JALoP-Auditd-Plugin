@@ -1,0 +1,54 @@
+JAL Audit Plugin (jalauditd)
+
+INTRODUCTION
+
+	jalauditd is a JAL plugin for audisp. The plugin connects to a JALoP 
+	socket and upon receiving audit messages from audisp, parses the
+	messages and formats them into JALoP structures. After the audit
+	messages have been parsed and structured, the plugin sends the data
+	to the JALoP logger for further processing.
+
+	The plugin consists of a binary installed to /sbin, an audisp config
+	file installed to /etc/audisp/plugins.d, and a jalauditd config file
+	installed to /etc/jalauditd. The installation prefix can be changed by
+	setting PREFIX when building.
+
+	The binary's location is known to audisp through the audisp config file.
+	Other than the binary path, no other option within this file should be 
+	changed.
+
+	The jalauditd config file is initially blank and can take only 4
+	options, socket, schemas, keypath, and certpath. These parameters must be 
+	formatted in the following way:
+
+		socket = "/path/to/jalop/socket";
+		schemas = "/path/to/schemas/root";
+		keypath = "/path/to/key";
+		certpath = "/path/to/cert";
+
+	The socket and schemas options, if not specified, with default to the locations specified
+	by the JAL producer library.  If keypath or certpath are not specified, no key or cert will
+	be used for signing.
+
+
+DEPENDENCIES
+
+	JALoP Libraries
+	audit-libs-devel >= 2.0.6
+	glib2-devel
+
+BUILD STEPS
+
+	make
+		Build the binary.
+		The installation PREFIX can be set in this step.
+
+	make clean
+		Remove the compiled binary and object files.
+
+	make install
+		Install the binary and config files to their designated
+		locations.
+
+	auditd must be restarted after installation:
+		/etc/init.d/auditd restart
