@@ -13,10 +13,10 @@ OBJ = $(JALAUDITD).o
 
 ARCH := $(shell getconf LONG_BIT)
 
-LDFLAGS_32 ?= -lauparse -lconfig -ljal-producer -ljal-common -L/usr/local/lib -Wl,-rpath=/usr/local/lib -L/lib -lglib-2.0 -lrt
+LDFLAGS_32 ?= -lauparse -lconfig -ljal-producer -ljal-common -L/usr/local/lib -Wl,-rpath=/usr/local/lib -L/lib -lglib-2.0 -lrt -lpthread
 CFLAGS_32 ?= -Werror -Wall -Wshadow -Wextra -Wundef -Wmissing-format-attribute -Wcast-align -Wstrict-prototypes -Wpointer-arith -Wunused -D_GNU_SOURCE -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
 
-LDFLAGS_64 ?= -lauparse -lconfig -ljal-producer -ljal-common -L/usr/local/lib -Wl,-rpath=/usr/local/lib -L/lib64 -lglib-2.0 -lrt
+LDFLAGS_64 ?= -lauparse -lconfig -ljal-producer -ljal-common -L/usr/local/lib -Wl,-rpath=/usr/local/lib -L/lib64 -lglib-2.0 -lrt -lpthread
 CFLAGS_64 ?= -Werror -Wall -Wshadow -Wextra -Wundef -Wmissing-format-attribute -Wcast-align -Wstrict-prototypes -Wpointer-arith -Wunused -D_GNU_SOURCE -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include
 
 LDFLAGS := $(LDFLAGS_$(ARCH))
