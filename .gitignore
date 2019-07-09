@@ -1,0 +1,13 @@
+*.[oa]
+*.lo
+*.la
+*.log
+*.my
+*.orig
+*.new
+.reviewboardrc
+tmp/
+.deps/
+.libs/
+*.swp
+jalauditd
