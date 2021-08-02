@@ -41,6 +41,7 @@
 #include <time.h>
 
 #include <jalop/jalp_context.h>
+#include <jalop/jalp_audit.h>
 #include <jalop/jalp_logger.h>
 #include <jalop/jalp_app_metadata.h>
 #include <jalop/jalp_logger_metadata.h>
@@ -296,6 +297,18 @@ static void* send_messages_to_local_store(void* ctx)
 {
 	int rc=0;	
 	struct jalp_app_metadata *app_data = NULL;
+
+	// Create a dummy payload to include in each JALoP Audit Record
+	// because an audit record cannot have an empty payload, unlike
+	// a log record. Note that the application metadata includes
+	// the original auditd message plus each key/value pair extracted
+	// from the message in the "StructuredData" node of app metadata.
+	const char *payload_str = "see app-meta";
+	uint8_t* payload = NULL;
+	size_t payload_size = strlen(payload_str);
+	payload = calloc(1, sizeof(char)*payload_size);
+	memcpy(payload, payload_str, payload_size);
+
 	while(1){
 		pthread_mutex_lock(&queue_mutex);
 		while(g_queue_is_empty(event_queue)){
@@ -307,7 +320,7 @@ static void* send_messages_to_local_store(void* ctx)
 		pthread_mutex_unlock(&queue_mutex);
 		pthread_cond_signal(&queue_full);
 
-		rc = jalp_log((jalp_context*) ctx, app_data, NULL, 0);
+		rc = jalp_audit((jalp_context*) ctx, app_data, payload, payload_size);
 
 		free(app_data->log->message);
 		app_data->log->message = NULL;
@@ -322,6 +335,7 @@ static void* send_messages_to_local_store(void* ctx)
 			return NULL;
 		}
 	}
+	if (payload) free(payload);
 	return NULL;
 }
 
