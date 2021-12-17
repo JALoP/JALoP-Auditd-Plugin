@@ -94,7 +94,6 @@ static void audit_event_handle(auparse_state_t *au,
 			void *user_data)
 {
 	UNUSED(user_data);
-	int i = 0;
 	struct jalp_app_metadata *app_data = NULL;
 	struct jalp_logger_metadata *log_data = NULL;
 	struct jalp_param *param_list = NULL;
@@ -106,8 +105,8 @@ static void audit_event_handle(auparse_state_t *au,
 		return;
 	}
 
-	while (auparse_goto_record_num(au, i) > 0) {
-
+	auparse_first_record(au);
+	do {
 		app_data = jalp_app_metadata_create();
 		if (!app_data) {
 			syslog(LOG_ERR, "failure creating JALP application metadata");
@@ -180,14 +179,11 @@ static void audit_event_handle(auparse_state_t *au,
 		pthread_mutex_unlock(&queue_mutex);
 		pthread_cond_signal(&data_in_queue);
 
-		i++;
-
 		app_data = NULL;
 		log_data = NULL;
 		param_list = NULL;
 		param = NULL;
-
-	}
+	} while (auparse_next_record(au) > 0);
 	return;
 out:
 	jalp_app_metadata_destroy(&app_data);
