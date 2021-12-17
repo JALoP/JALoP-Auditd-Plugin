@@ -34,7 +34,7 @@ INTRODUCTION
 DEPENDENCIES
 
 	JALoP Libraries
-	audit-libs-devel >= 2.0.6
+	audit-libs-devel >= 3.0.1
 	glib2-devel
 
 BUILD STEPS
