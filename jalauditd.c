@@ -367,7 +367,7 @@ int main(void)
 		syslog(LOG_ERR, "failure initializing auparse");
 		goto out;
 	}
-	auparse_set_eoe_timeout(2);
+
 	auparse_add_callback(au, audit_event_handle, NULL, NULL);
 
 	do {
