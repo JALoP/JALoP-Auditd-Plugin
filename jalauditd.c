@@ -31,6 +31,7 @@
 #include <signal.h>
 #include <libconfig.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <libaudit.h>
 #include <auparse.h>
@@ -357,6 +358,9 @@ int main(void)
 		goto out;
 	}
 
+	/* Set STDIN non-blocking */
+	fcntl(0, F_SETFL, O_NONBLOCK);
+
 	au = auparse_init(AUSOURCE_FEED, 0);
 	if (!au) {
 		rc = -1;
@@ -364,9 +368,11 @@ int main(void)
 		goto out;
 	}
 
-	while (fgets_unlocked(msg, MAX_AUDIT_MESSAGE_LENGTH, stdin) && 
-		(status == RUN || status == RELOAD)) {
+	auparse_add_callback(au, audit_event_handle, NULL, NULL);
 
+	do {
+		fd_set read_mask;
+		int read_size = 1; /* Set to 1 so it's not EOF */
 		if (status == RELOAD || !ctx) {
 			syslog(LOG_INFO, "loading config");
 
@@ -397,7 +403,6 @@ int main(void)
 				}
 				pthread_cancel(send_ls_thread);
 			}
-			auparse_add_callback(au, audit_event_handle, ctx, NULL);
 			pthread_create(&send_ls_thread, NULL, &send_messages_to_local_store, (void*)ctx);
 			if (print_stats){
 				pthread_create(&print_stats_thread, NULL, &log_stats, NULL);
@@ -405,20 +410,39 @@ int main(void)
 
 			status = RUN;
 		}
+		do {
+			FD_ZERO(&read_mask);
+			FD_SET(0, &read_mask);
 
-		rc = auparse_feed(au, msg, strnlen(msg, MAX_AUDIT_MESSAGE_LENGTH));
-		if (rc) {
-			syslog(LOG_ERR, "failure parsing feed, rc: %d", rc);
-			goto out;
-		}
+			if (auparse_feed_has_data(au)) {
+				/* If there are any records, do a fast time
+				 * out so we can age out the data so it doesn't
+				 * get stuck inside auparse. */
+				struct timeval tv;
+				tv.tv_sec = 1;
+				tv.tv_usec = 0;
+				rc = select(1, &read_mask, NULL, NULL, &tv);
+			} else	/* no data, wait forever */
+				rc = select(1, &read_mask, NULL, NULL, NULL);
 
-		if (feof(stdin)) {
-			rc = 0;
-			break;
-		}
-	}
+			/* If we timed out & have events, shake them loose */
+			if (rc == 0 && auparse_feed_has_data(au))
+				auparse_feed_age_events(au);
 
-	rc = auparse_flush_feed(au);
+			/* The event loop */
+			if (status == RUN && rc > 0) {
+				while ((read_size = read(0, msg,
+						 MAX_AUDIT_MESSAGE_LENGTH)) > 0)
+					auparse_feed(au, msg, read_size);
+			}
+			if (read_size == 0) { /* EOF */
+				rc = 0;
+				break;
+			}
+		} while (status == RUN);
+	} while (status == RUN || status == RELOAD);
+
+	auparse_flush_feed(au);
 out:
 	jalp_context_destroy(&ctx);
 	jalp_shutdown();
