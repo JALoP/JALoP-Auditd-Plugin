@@ -370,14 +370,18 @@ int main(void)
 
 	auparse_add_callback(au, audit_event_handle, NULL, NULL);
 
-	do {
+	do 
+	{
 		fd_set read_mask;
 		int read_size = 1; /* Set to 1 so it's not EOF */
-		if (status == RELOAD || !ctx) {
+
+		if (status == RELOAD || !ctx) 
+		{
 			syslog(LOG_INFO, "loading config");
 
 			rc = config_load(&config);
-			if (rc < 0) {
+			if (rc < 0) 
+			{
 				syslog(LOG_ERR, "failure reloading config, rc: %d", rc);
 				goto out;
 			}
@@ -385,36 +389,43 @@ int main(void)
 			jalp_context_destroy(&ctx);
 
 			ctx = jalp_context_create();
-			if (!ctx) {
+			if (!ctx) 
+			{
 				rc = -1;
 				syslog(LOG_ERR, "failure creating JALP context");
 				goto out;
 			}
 
 			rc = context_init(&config, ctx);
-			if (rc < 0) {
+			if (rc < 0) 
+			{
 				syslog(LOG_ERR, "failure resetting JALP context, rc: %d", rc);
 				goto out;
 			}
 			config_destroy(&config);
-			if (status == RELOAD) {
-				if (print_stats) {
+			if (status == RELOAD) 
+			{
+				if (print_stats) 
+				{
 					pthread_cancel(print_stats_thread);
 				}
 				pthread_cancel(send_ls_thread);
 			}
 			pthread_create(&send_ls_thread, NULL, &send_messages_to_local_store, (void*)ctx);
-			if (print_stats){
+			if (print_stats)
+			{
 				pthread_create(&print_stats_thread, NULL, &log_stats, NULL);
 			}
 
 			status = RUN;
 		}
-		do {
+		do 
+		{
 			FD_ZERO(&read_mask);
 			FD_SET(0, &read_mask);
 
-			if (auparse_feed_has_data(au)) {
+			if (auparse_feed_has_data(au)) 
+			{
 				/* If there are any records, do a fast time
 				 * out so we can age out the data so it doesn't
 				 * get stuck inside auparse. */
@@ -422,24 +433,32 @@ int main(void)
 				tv.tv_sec = 1;
 				tv.tv_usec = 0;
 				rc = select(1, &read_mask, NULL, NULL, &tv);
-			} else	/* no data, wait forever */
+			} 
+			else	/* no data, wait forever */
+			{
 				rc = select(1, &read_mask, NULL, NULL, NULL);
+			}
 
 			/* If we timed out & have events, shake them loose */
 			if (rc == 0 && auparse_feed_has_data(au))
+			{
 				auparse_feed_age_events(au);
+			}
 
-			/* The event loop */
-			if (status == RUN && rc > 0) {
-				while ((read_size = read(0, msg,
-						 MAX_AUDIT_MESSAGE_LENGTH)) > 0)
-					auparse_feed(au, msg, read_size);
+		} while (rc == -1 && errno == EINTR && status == RUN);
+		/* The event loop */
+		if (status == RUN && rc > 0) 
+		{
+			while ((read_size = read(0, msg, MAX_AUDIT_MESSAGE_LENGTH)) > 0)
+			{
+				auparse_feed(au, msg, read_size);
 			}
-			if (read_size == 0) { /* EOF */
-				rc = 0;
-				break;
-			}
-		} while (status == RUN);
+		}
+		if (read_size == 0)  /* EOF */
+		{
+			rc = 0;
+			break;
+		}
 	} while (status == RUN || status == RELOAD);
 
 	auparse_flush_feed(au);

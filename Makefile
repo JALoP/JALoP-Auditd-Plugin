@@ -3,7 +3,7 @@ BINDIR ?= $(PREFIX)/sbin
 ETCDIR ?= $(PREFIX)/etc
 CONFDIR ?= $(ETCDIR)/jalauditd
 JALCONF ?= jalauditd.conf
-AUCONFDIR ?= $(ETCDIR)/audisp/plugins.d
+AUCONFDIR ?= $(ETCDIR)/audit/plugins.d
 AUCONF ?= audisp-jalauditd.conf
 
 JALAUDITD = jalauditd
