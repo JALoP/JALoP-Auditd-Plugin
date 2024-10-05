@@ -13,10 +13,10 @@ OBJ = $(JALAUDITD).o
 
 ARCH := $(shell getconf LONG_BIT)
 
-LDFLAGS_32 ?= -lauparse -lconfig -ljal-producer -ljal-common -L/usr/local/lib -Wl,-rpath=/usr/local/lib -L/lib -lglib-2.0 -lrt -lpthread -pie -Wl,-z,relro,-z,now
+LDFLAGS_32 ?= -lauparse -lconfig -ljal-producer -ljal-common -L/usr/local/lib -L/lib -lglib-2.0 -lrt -lpthread -pie -Wl,-z,relro,-z,now
 CFLAGS_32 ?= -Werror -Wall -Wshadow -Wextra -Wundef -Wmissing-format-attribute -Wcast-align -Wstrict-prototypes -Wpointer-arith -Wunused -D_GNU_SOURCE -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -O2 -fstack-protector-all -Wstack-protector -D_FORTIFY_SOURCE=2 -fPIE
 
-LDFLAGS_64 ?= -lauparse -lconfig -ljal-producer -ljal-common -Wl,-rpath=/usr/local/lib:/usr/lib64:/lib64 -lglib-2.0 -lrt -lpthread -pie -Wl,-z,relro,-z,now
+LDFLAGS_64 ?= -lauparse -lconfig -ljal-producer -ljal-common -lglib-2.0 -lrt -lpthread -pie -Wl,-z,relro,-z,now
 CFLAGS_64 ?= -Werror -Wall -Wshadow -Wextra -Wundef -Wmissing-format-attribute -Wcast-align -Wstrict-prototypes -Wpointer-arith -Wunused -D_GNU_SOURCE -I/usr/include/glib-2.0 -I/usr/lib64/glib-2.0/include -O2 -fstack-protector-all -Wstack-protector -D_FORTIFY_SOURCE=2 -fPIE
 
 LDFLAGS := $(LDFLAGS_$(ARCH))
@@ -26,6 +26,7 @@ ifeq ($(DEBUG),1)
 	override CFLAGS += -g3 -O0 -gdwarf-2 -fno-strict-aliasing -DDEBUG
 	override LDFLAGS += -g
 else
+	override LDFLAGS += -s
 	override CFLAGS += -O2
 endif
 
